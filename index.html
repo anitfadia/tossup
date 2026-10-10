@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tossup · IPL match predictor</title>
+<meta name="description" content="Predicted first-innings score, win chance and the toss call for any IPL fixture.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500&family=Barlow+Condensed:wght@600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070b09; --panel:rgba(255,255,255,.04); --line:rgba(255,255,255,.1);
+  --ink:#eef3ea; --dim:#8d998f; --bat:#d7ff3a; --bowl:#4fd8ff; --c:#8d998f;
+  --cond:'Barlow Condensed',Impact,sans-serif; --body:'Barlow',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace; --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font:400 1rem/1.5 var(--body);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;z-index:-3;
+  background:radial-gradient(70% 45% at 50% -8%,rgba(215,255,58,.14),transparent 70%),radial-gradient(50% 40% at 100% 100%,rgba(79,216,255,.08),transparent 70%)}
+body::after{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.02) 0 64px,transparent 64px 128px);
+  -webkit-mask-image:linear-gradient(#000,transparent 65%);mask-image:linear-gradient(#000,transparent 65%)}
+.grain{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.07;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+main{max-width:1040px;margin:0 auto;padding:0 clamp(1rem,4vw,2rem) 4rem}
+.top{display:flex;justify-content:space-between;align-items:center;padding:1.6rem 0;gap:1rem;flex-wrap:wrap}
+.logo{font:800 1.7rem var(--cond);letter-spacing:.05em;text-transform:uppercase;display:flex;align-items:center;gap:.55rem}
+.ball{position:relative;width:.95rem;height:.95rem;border-radius:50%;background:#e5383b;box-shadow:0 0 14px rgba(229,56,59,.55)}
+.ball::after{content:"";position:absolute;left:-10%;right:-10%;top:42%;height:16%;border-top:1.5px solid rgba(255,255,255,.85);border-radius:50%}
+.meta{font:400 .74rem var(--mono);color:var(--dim);letter-spacing:.04em}
+.hero{padding:1.5rem 0 2rem}
+h1{font:800 clamp(2.8rem,9vw,5.8rem)/.9 var(--cond);text-transform:uppercase;letter-spacing:-.01em}
+h1 em{font-style:normal;color:var(--bat)}
+.sub{color:var(--dim);max-width:46ch;margin-top:1rem;font-size:1.05rem}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:clamp(.9rem,2.5vw,1.3rem);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.row{display:grid;gap:.9rem}
+.teams{grid-template-columns:1fr auto 1fr;align-items:end}
+.lower{grid-template-columns:1.3fr 1fr;margin-top:1rem}
+.lbl{display:block;font:500 .68rem var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:.4rem}
+.sel{position:relative;border:1px solid var(--line);border-left:5px solid var(--c);border-radius:14px;background:rgba(0,0,0,.4);transition:border-color .3s}
+.sel::after{content:"";position:absolute;right:1rem;top:50%;width:.55rem;height:.55rem;border:solid var(--dim);border-width:0 2px 2px 0;transform:translateY(-70%) rotate(45deg);pointer-events:none}
+select{appearance:none;-webkit-appearance:none;width:100%;border:0;background:transparent;color:var(--ink);font:700 1.5rem var(--cond);text-transform:uppercase;letter-spacing:.02em;padding:.7rem 2.4rem .7rem 1rem;cursor:pointer;border-radius:14px}
+#venue{font-size:1.2rem}
+option{background:#101612;color:var(--ink);text-transform:none;font:500 1rem var(--body)}
+select:focus-visible,.swap:focus-visible,.seg input:focus-visible+label{outline:2px solid var(--bat);outline-offset:2px}
+.swap{width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--ink);font-size:1.2rem;cursor:pointer;transition:transform .4s var(--ease),background .2s;margin-bottom:.2rem}
+.swap:hover{background:rgba(215,255,58,.14);transform:rotate(180deg)}
+.seg{display:flex;gap:.4rem;flex-wrap:wrap}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label{font:500 .8rem var(--mono);padding:.62rem .9rem;border:1px solid var(--line);border-radius:99px;cursor:pointer;color:var(--dim);transition:.2s;user-select:none}
+.seg label:hover{color:var(--ink);border-color:rgba(255,255,255,.3)}
+.seg input:checked+label{background:var(--bat);border-color:var(--bat);color:#0a0f08;font-weight:700}
+.h{font:500 .74rem var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin:2.6rem 0 .9rem;display:flex;align-items:center;gap:.8rem}
+.h::after{content:"";flex:1;height:1px;background:var(--line)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.card{position:relative;border:1px solid var(--line);border-radius:20px;padding:1.1rem 1.25rem 1.2rem;overflow:hidden;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--c) 15%,transparent),transparent 55%),var(--panel);transition:opacity .3s,outline-color .3s}
+.card::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--c)}
+.who{display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap}
+.who b{font:800 1.5rem var(--cond);text-transform:uppercase;letter-spacing:.03em}
+.who small{font:400 .72rem var(--mono);color:var(--dim)}
+.digits{display:flex;gap:6px;margin:.8rem 0 .2rem}
+.d{width:clamp(46px,10vw,74px);height:clamp(66px,14vw,108px);display:grid;place-items:center;font:700 clamp(2.5rem,7.5vw,4.4rem) var(--mono);
+  background:linear-gradient(#1c241e 0 50%,#131a15 50% 100%);border-radius:9px;position:relative;box-shadow:inset 0 0 0 1px rgba(255,255,255,.07),0 8px 20px rgba(0,0,0,.35)}
+.d::after{content:"";position:absolute;left:0;right:0;top:50%;height:2px;background:#050806}
+.unit{font:400 .72rem var(--mono);color:var(--dim);letter-spacing:.1em;text-transform:uppercase}
+.track{position:relative;height:8px;border-radius:99px;background:rgba(255,255,255,.08);margin:1.3rem 0 .6rem}
+.band{position:absolute;top:0;bottom:0;border-radius:99px;background:var(--c);opacity:.4;transition:left .7s var(--ease),width .7s var(--ease)}
+.mark{position:absolute;top:-5px;width:4px;height:18px;border-radius:2px;background:var(--c);box-shadow:0 0 12px var(--c);transform:translateX(-50%);transition:left .7s var(--ease)}
+.range{font:400 .72rem var(--mono);color:var(--dim)}
+.bars{margin-top:.9rem}
+.bar-row{display:grid;grid-template-columns:84px 1fr 54px;gap:.7rem;align-items:center;margin:.7rem 0}
+.bar-row span{font:500 .72rem var(--mono);letter-spacing:.08em;color:var(--dim);text-transform:uppercase}
+.bar{position:relative;height:14px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
+.bar::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.4)}
+.fill{height:100%;width:0;border-radius:99px;transition:width .8s var(--ease)}
+.bat .fill{background:var(--bat)} .bowl .fill{background:var(--bowl)}
+.bar-row b{font:700 1.05rem var(--mono);text-align:right}
+.bar-row.best b{color:var(--ink)} .bar-row:not(.best){opacity:.62}
+.tag{font:500 .66rem var(--mono);letter-spacing:.1em;padding:.15rem .5rem;border-radius:99px;margin-left:auto;border:1px solid var(--line);color:var(--dim)}
+.call{display:flex;flex-direction:column;gap:.3rem;outline:2px solid transparent;outline-offset:3px}
+.call.on{outline-color:var(--c)} .call.off{opacity:.4}
+.call small{font:400 .74rem var(--mono);color:var(--dim)}
+.call strong{font:800 clamp(2.3rem,7vw,3.6rem)/.95 var(--cond);text-transform:uppercase}
+.call strong.bat{color:var(--bat)} .call strong.bowl{color:var(--bowl)} .call strong.even{color:var(--dim)}
+.pill{align-self:flex-start;font:500 .72rem var(--mono);padding:.25rem .65rem;border-radius:99px;background:rgba(255,255,255,.07);margin-top:.3rem}
+.ground{display:flex;flex-wrap:wrap;gap:1.4rem 3rem;align-items:flex-end}
+.ground div{min-width:110px}
+.ground b{display:block;font:800 2.3rem/1 var(--cond)}
+.ground .name{flex:1 1 100%;font:700 1.15rem var(--cond);letter-spacing:.04em;text-transform:uppercase;color:var(--dim)}
+.trust{font-size:.95rem;color:var(--dim);max-width:70ch}
+.trust b{color:var(--ink);font-weight:500}
+footer{margin-top:3rem;font:400 .72rem var(--mono);color:var(--dim)}
+.rise{animation:rise .7s var(--ease) both}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:720px){
+  .teams,.lower,.two{grid-template-columns:1fr}
+  .swap{justify-self:center;transform:rotate(90deg);margin:0}
+  .swap:hover{transform:rotate(270deg)}
+  .bar-row{grid-template-columns:72px 1fr 48px}
+.copyright {
+    text-align: center;
+    width: 100%;
+    max-width: none;
+    margin: 1rem auto 0;
+    font-size: 0.85rem;
+    color: var(--dim);
+}
+}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<main>
+  <header class="top rise">
+    <div class="logo"><span class="ball"></span>Tossup</div>
+    <div class="meta" id="meta"></div>
+  </header>
+ 
+  <section class="hero rise" style="animation-delay:.05s">
+    <h1>Bat or bowl?<br><em>Call it with data.</em></h1>
+    <p class="sub">Expected first-innings score, win chance and the toss call for any IPL fixture, built from every match in the record books.</p>
+  </section>
+ 
+  <section class="panel rise" style="animation-delay:.12s">
+    <div class="row teams">
+      <div><label class="lbl" for="teamA">Team A</label><div class="sel" id="selA"><select id="teamA"></select></div></div>
+      <button class="swap" id="swap" type="button" aria-label="Swap teams">&#8644;</button>
+      <div><label class="lbl" for="teamB">Team B</label><div class="sel" id="selB"><select id="teamB"></select></div></div>
+    </div>
+    <div class="row lower">
+      <div><label class="lbl" for="venue">Venue</label><div class="sel" style="--c:#3b4a40"><select id="venue"></select></div></div>
+      <div><span class="lbl" id="tossLbl">Who won the toss?</span>
+        <div class="seg" role="radiogroup" aria-labelledby="tossLbl">
+          <input type="radio" name="toss" id="t0" value="none" checked><label for="t0">Not yet</label>
+          <input type="radio" name="toss" id="tA" value="A"><label for="tA" id="lA">A</label>
+          <input type="radio" name="toss" id="tB" value="B"><label for="tB" id="lB">B</label>
+        </div></div>
+    </div>
+  </section>
+ 
+  <div aria-live="polite">
+    <div class="h">Expected first-innings score</div>
+    <section class="two" id="scores"></section>
+    <div class="h">Chance of winning</div>
+    <section class="two" id="wins"></section>
+    <div class="h">The toss call</div>
+    <section class="two" id="calls"></section>
+    <div class="h">The ground</div>
+    <section class="panel ground" id="ground"></section>
+  </div>
+ 
+  <div class="h">How much to trust this</div>
+  <p class="trust" id="trust"></p>
+  <footer>Tossup &middot; built from match results only. Not betting advice.</footer>
+  <p class="sub copyright">© 2026 Anit Fadia</p>
+</main>
+ 
+<script>
+const MODEL = {"league":201.6036,"teams":{"Chennai Super Kings":{"elo":1462.702,"bat_off":-3.5434,"bowl_off":-0.7044,"defend":0.5111,"chase":0.6119,"home":"MA Chidambaram Stadium, Chennai"},"Delhi Capitals":{"elo":1502.641,"bat_off":-3.903,"bowl_off":3.1483,"defend":0.4134,"chase":0.4989,"home":"Arun Jaitley Stadium, Delhi"},"Gujarat Titans":{"elo":1538.762,"bat_off":2.6573,"bowl_off":1.2297,"defend":0.54,"chase":0.6337,"home":"Narendra Modi Stadium, Ahmedabad"},"Kolkata Knight Riders":{"elo":1491.491,"bat_off":2.2515,"bowl_off":-8.3678,"defend":0.4356,"chase":0.5888,"home":"Eden Gardens, Kolkata"},"Lucknow Super Giants":{"elo":1450.207,"bat_off":2.1601,"bowl_off":0.954,"defend":0.5142,"chase":0.4558,"home":"Ekana Stadium, Lucknow"},"Mumbai Indians":{"elo":1451.112,"bat_off":-4.3783,"bowl_off":5.1291,"defend":0.5172,"chase":0.56,"home":"Wankhede Stadium, Mumbai"},"Punjab Kings":{"elo":1504.719,"bat_off":2.9071,"bowl_off":4.6879,"defend":0.4005,"chase":0.5386,"home":"IS Bindra Stadium, Mohali"},"Rajasthan Royals":{"elo":1499.031,"bat_off":-0.3352,"bowl_off":8.2265,"defend":0.44,"chase":0.5563,"home":"Sawai Mansingh Stadium, Jaipur"},"Royal Challengers Bengaluru":{"elo":1576.661,"bat_off":4.801,"bowl_off":-4.686,"defend":0.4677,"chase":0.5532,"home":"M Chinnaswamy Stadium, Bengaluru"},"Sunrisers Hyderabad":{"elo":1524.569,"bat_off":9.5531,"bowl_off":7.6155,"defend":0.4723,"chase":0.5227,"home":"Rajiv Gandhi Stadium, Hyderabad"}},"venues":{"ACA-VDCA Stadium, Visakhapatnam":{"off":0.1056,"bf":0.4667,"matches":4,"avg":208.75,"bf_pct":50.0,"field_pct":25.0},"Arun Jaitley Stadium, Delhi":{"off":3.6671,"bf":0.4649,"matches":30,"avg":194.067,"bf_pct":44.828,"field_pct":76.667},"Barsapara Stadium, Guwahati":{"off":-11.9281,"bf":0.4778,"matches":8,"avg":168.875,"bf_pct":50.0,"field_pct":87.5},"Eden Gardens, Kolkata":{"off":7.1138,"bf":0.4313,"matches":28,"avg":195.857,"bf_pct":53.571,"field_pct":82.143},"Ekana Stadium, Lucknow":{"off":-8.543,"bf":0.4216,"matches":28,"avg":176.714,"bf_pct":40.741,"field_pct":78.571},"HPCA Stadium, Dharamsala":{"off":16.8652,"bf":0.5571,"matches":9,"avg":214.444,"bf_pct":66.667,"field_pct":100.0},"M Chinnaswamy Stadium, Bengaluru":{"off":4.6351,"bf":0.4418,"matches":24,"avg":190.375,"bf_pct":45.833,"field_pct":100.0},"MA Chidambaram Stadium, Chennai":{"off":-11.7382,"bf":0.5245,"matches":41,"avg":168.512,"bf_pct":42.5,"field_pct":63.415},"Mullanpur Stadium, New Chandigarh":{"off":-1.5797,"bf":0.4667,"matches":17,"avg":186.588,"bf_pct":47.059,"field_pct":70.588},"Narendra Modi Stadium, Ahmedabad":{"off":0.6942,"bf":0.4935,"matches":41,"avg":185.805,"bf_pct":48.78,"field_pct":80.488},"Rajiv Gandhi Stadium, Hyderabad":{"off":4.1284,"bf":0.4551,"matches":25,"avg":197.12,"bf_pct":52.0,"field_pct":60.0},"Sawai Mansingh Stadium, Jaipur":{"off":3.3105,"bf":0.3667,"matches":21,"avg":194.524,"bf_pct":42.857,"field_pct":57.143},"Shaheed Veer Narayan Singh Stadium, Raipur":{"off":-10.1159,"bf":0.3667,"matches":2,"avg":179.0,"bf_pct":0.0,"field_pct":100.0},"Wankhede Stadium, Mumbai":{"off":5.5825,"bf":0.4511,"matches":59,"avg":181.915,"bf_pct":40.678,"field_pct":84.746}},"score":{"features":["venue_off","bat_off","bowl_off","home_b","home_c"],"mean":[0.467061,0.387034,0.248573,0.343598,0.294165],"scale":[6.045506,4.282658,4.451119,0.474909,0.455667],"coef":[2.360114,-1.041996,-0.200672,1.96038,-0.662884],"intercept":0.674288},"win":{"features":["elo_diff","def_b","chase_c","venue_bf"],"mean":[0.556784,0.462081,0.56491,0.458706],"scale":[47.778702,0.073783,0.06394,0.059087],"coef":[0.052821,0.050174,-0.050964,-0.0674],"intercept":-0.18839},"interval":[-45.119,45.589],"metrics":{"score_mae":29.8019,"score_baseline_mae":30.0387,"win_acc":0.4977,"win_baseline_acc":0.554,"win_logloss":0.6966,"win_baseline_logloss":0.6875},"data_through":"2026-05-31","n_matches":1243,"seasons":19};
+ 
+/*LOGIC_START*/
+const lin = (m, x) => m.features.reduce((s, f, i) => s + m.coef[i] * ((x[f] - m.mean[i]) / m.scale[i]), m.intercept);
+function feats(M, b, c, v) {
+  const B = M.teams[b], C = M.teams[c], V = M.venues[v];
+  return { venue_off: V.off, bat_off: B.bat_off, bowl_off: C.bowl_off, home_b: +(B.home === v), home_c: +(C.home === v),
+           elo_diff: B.elo - C.elo, def_b: B.defend, chase_c: C.chase, venue_bf: V.bf };
+}
+function side(M, b, c, v) {
+  const f = feats(M, b, c, v), runs = M.league + lin(M.score, f);
+  return { runs, lo: runs + M.interval[0], hi: runs + M.interval[1], p: 1 / (1 + Math.exp(-lin(M.win, f))) };
+}
+function predict(M, a, b, v) {
+  const sa = side(M, a, b, v), sb = side(M, b, a, v);
+  const win = { [a]: { bat: sa.p, bowl: 1 - sb.p }, [b]: { bat: sb.p, bowl: 1 - sa.p } }, toss = {};
+  for (const t of [a, b]) { const d = win[t].bat - win[t].bowl; toss[t] = { pick: d >= 0 ? 'bat' : 'bowl', gain: Math.abs(d), marginal: Math.abs(d) < 0.03 }; }
+  return { score: { [a]: sa, [b]: sb }, win, toss };
+}
+/*LOGIC_END*/
+ 
+const TEAM = {
+  'Chennai Super Kings': ['CSK', '#f9cd05'], 'Mumbai Indians': ['MI', '#2d9cdb'], 'Royal Challengers Bengaluru': ['RCB', '#e63946'],
+  'Kolkata Knight Riders': ['KKR', '#9b6bdf'], 'Delhi Capitals': ['DC', '#5b8def'], 'Punjab Kings': ['PBKS', '#f4a3a8'],
+  'Rajasthan Royals': ['RR', '#ff4fa3'], 'Sunrisers Hyderabad': ['SRH', '#ff8a2b'], 'Gujarat Titans': ['GT', '#8fa3b8'],
+  'Lucknow Super Giants': ['LSG', '#3ddbd0']
+};
+const code = t => (TEAM[t] || [t.split(' ').map(w => w[0]).join('')])[0];
+const color = t => (TEAM[t] || [0, '#8d998f'])[1];
+const $ = s => document.querySelector(s), reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
+const teams = Object.keys(MODEL.teams).sort(), venues = Object.keys(MODEL.venues).sort();
+const selA = $('#teamA'), selB = $('#teamB'), selV = $('#venue');
+const opts = (el, list, keep) => { el.innerHTML = list.map(x => `<option>${x}</option>`).join(''); if (keep && list.includes(keep)) el.value = keep; };
+ 
+function tween(el, to, paint) {
+  const from = el._v ?? 0, id = el._id = (el._id || 0) + 1; el._v = to;
+  if (reduce) return paint(el, to);
+  const t0 = performance.now();
+  (function f(t) { if (el._id !== id) return; const k = Math.min(1, (t - t0) / 600); paint(el, from + (to - from) * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(f); })(t0);
+}
+const digits = (el, n) => { el.innerHTML = String(Math.max(0, Math.round(n))).padStart(3, '0').split('').map(d => `<span class="d">${d}</span>`).join(''); };
+const pct = (el, n) => { el.textContent = Math.round(n * 100) + '%'; };
+ 
+function build() {   // static skeleton, so values can animate between updates
+  $('#scores').innerHTML = ['A', 'B'].map(k => `<article class="card" id="s${k}"><div class="who"><b></b><small>batting first</small></div>
+    <div class="digits"></div><div class="unit">predicted runs</div><div class="track"><div class="band"></div><div class="mark"></div></div><div class="range"></div></article>`).join('');
+  $('#wins').innerHTML = ['A', 'B'].map(k => `<article class="card" id="w${k}"><div class="who"><b></b></div><div class="bars">
+    <div class="bar-row bat"><span>Bat first</span><div class="bar"><div class="fill"></div></div><b></b></div>
+    <div class="bar-row bowl"><span>Bowl first</span><div class="bar"><div class="fill"></div></div><b></b></div></div></article>`).join('');
+  $('#calls').innerHTML = ['A', 'B'].map(k => `<article class="card call" id="c${k}"><small></small><strong></strong><span class="pill"></span></article>`).join('');
+}
+ 
+function update() {
+  const a = selA.value, b = selB.value, v = selV.value, toss = document.querySelector('input[name=toss]:checked').value;
+  const r = predict(MODEL, a, b, v), pair = { A: a, B: b };
+  $('#selA').style.setProperty('--c', color(a)); $('#selB').style.setProperty('--c', color(b));
+  $('#lA').textContent = code(a); $('#lB').textContent = code(b);
+  for (const k of ['A', 'B']) {
+    const t = pair[k], s = r.score[t], w = r.win[t], c = r.toss[t];
+    const sc = $('#s' + k), wc = $('#w' + k), cc = $('#c' + k);
+    [sc, wc, cc].forEach(n => n.style.setProperty('--c', color(t)));
+    sc.querySelector('b').textContent = t; wc.querySelector('b').textContent = t;
+    tween(sc.querySelector('.digits'), s.runs, digits);
+    const lo = 100, span = 190, L = Math.max(0, (s.lo - lo) / span * 100), H = Math.min(100, (s.hi - lo) / span * 100);
+    sc.querySelector('.band').style.cssText = `left:${L}%;width:${H - L}%`;
+    sc.querySelector('.mark').style.left = Math.min(100, Math.max(0, (s.runs - lo) / span * 100)) + '%';
+    sc.querySelector('.range').textContent = `80% of the time: ${Math.round(s.lo)} to ${Math.round(s.hi)}`;
+    const rows = wc.querySelectorAll('.bar-row'), best = w.bat >= w.bowl ? 0 : 1;
+    [w.bat, w.bowl].forEach((p, i) => {
+      rows[i].classList.toggle('best', i === best);
+      rows[i].querySelector('.fill').style.width = (p * 100) + '%';
+      tween(rows[i].querySelector('b'), p, pct);
+    });
+    cc.querySelector('small').textContent = `If ${code(t)} wins the toss`;
+    const st = cc.querySelector('strong');
+    st.className = c.marginal ? 'even' : c.pick;
+    st.textContent = c.marginal ? 'Either way' : c.pick + ' first';
+    cc.querySelector('.pill').textContent = c.marginal ? 'under 3 points either way' : `+${Math.round(c.gain * 100)} pts win chance`;
+    cc.classList.toggle('on', toss === k); cc.classList.toggle('off', toss !== 'none' && toss !== k);
+  }
+  const g = MODEL.venues[v];
+  $('#ground').innerHTML = g.matches ? `<div class="name">${v}</div>
+    <div><span class="lbl">Avg 1st innings</span><b>${Math.round(g.avg)}</b></div>
+    <div><span class="lbl">Batting first wins</span><b>${Math.round(g.bf_pct)}%</b></div>
+    <div><span class="lbl">Toss winners bowl</span><b>${Math.round(g.field_pct)}%</b></div>
+    <div><span class="lbl">Matches, last 6 yrs</span><b>${g.matches}</b></div>` : `<div class="name">${v}</div><p class="trust">Not enough recent matches here for a ground profile.</p>`;
+}
+ 
+const M = MODEL.metrics;
+$('#meta').textContent = `${MODEL.n_matches.toLocaleString()} matches · ${MODEL.seasons} seasons · through ${MODEL.data_through}`;
+$('#trust').innerHTML = `On recent seasons the model never saw, the score estimate was off by about <b>${Math.round(M.score_mae)} runs</b> on average, and the win-chance side picked the winner <b>${Math.round(M.win_acc * 100)}%</b> of the time, close to a coin flip. T20 is noisy and the data is match-level only, so read the percentages as gentle nudges from venue and team history, not strong predictions.`;
+ 
+opts(selA, teams, 'Mumbai Indians'); opts(selB, teams.filter(t => t !== selA.value), 'Chennai Super Kings'); opts(selV, venues);
+const homeOf = t => { const h = MODEL.teams[t].home; return venues.includes(h) ? h : null; };
+selV.value = homeOf(selA.value) || venues[0];
+build(); update();
+selA.onchange = () => { opts(selB, teams.filter(t => t !== selA.value), selB.value); const h = homeOf(selA.value); if (h) selV.value = h; update(); };
+selB.onchange = selV.onchange = update;
+document.querySelectorAll('input[name=toss]').forEach(i => i.onchange = update);
+$('#swap').onclick = () => { const a = selA.value, b = selB.value; opts(selA, teams, b); opts(selB, teams.filter(t => t !== b), a); update(); };
+</script>
+</body>
+</html>
+ 
